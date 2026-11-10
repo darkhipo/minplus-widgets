@@ -1,4 +1,6 @@
-import Mathlib.Tactic
+import Mathlib.Data.List.Basic
+import Mathlib.Data.List.Range
+import Mathlib.Order.Basic
 
 /-!
 # Widgets.NetCalc — certified discrete min-plus network calculus
@@ -27,103 +29,171 @@ proofs ours.
 
 namespace Widgets.NetCalc
 
-theorem range_nonempty' (t : ℕ) : (Finset.range (t + 1)).Nonempty :=
-  ⟨0, Finset.mem_range.mpr (Nat.zero_lt_succ t)⟩
+/-! ### Fold-level helpers: min over a list -/
+
+/-- Any term of a `min`-fold is above the fold. -/
+theorem foldr_min_le {l : List ℕ} {seed : ℕ} {f : ℕ → ℕ} {s : ℕ} (hs : s ∈ l) :
+    l.foldr (fun i acc => min (f i) acc) seed ≤ f s := by
+  induction l with
+  | nil => cases hs
+  | cons hd tl ih =>
+    rw [List.foldr_cons]
+    rcases List.mem_cons.mp hs with rfl | hmem
+    · exact Nat.min_le_left _ _
+    · exact Nat.le_trans (Nat.min_le_right _ _) (ih hmem)
+
+/-- If `x` is below every term of a `min`-fold, it is below the fold. -/
+theorem le_foldr_min {l : List ℕ} {seed : ℕ} {f : ℕ → ℕ} {x : ℕ}
+    (hx : x ≤ seed) (h : ∀ s ∈ l, x ≤ f s) :
+    x ≤ l.foldr (fun i acc => min (f i) acc) seed := by
+  induction l with
+  | nil => exact hx
+  | cons hd tl ih =>
+    rw [List.foldr_cons]
+    exact Nat.le_min.mpr ⟨h hd List.mem_cons_self,
+      ih (fun s hmem => h s (List.mem_cons_of_mem _ hmem))⟩
+
+/-- A constant on the left distributes into a `min`-fold. -/
+theorem add_foldr_min_left (c : ℕ) (l : List ℕ) (f : ℕ → ℕ) (seed : ℕ) :
+    c + l.foldr (fun i acc => min (f i) acc) seed
+      = l.foldr (fun i acc => min (c + f i) acc) (c + seed) := by
+  induction l with
+  | nil => rfl
+  | cons hd tl ih =>
+    rw [List.foldr_cons, List.foldr_cons]
+    rcases Nat.le_total (f hd) (tl.foldr (fun i acc => min (f i) acc) seed) with hle | hle
+    · have h2 : c + f hd ≤ tl.foldr (fun i acc => min (c + f i) acc) (c + seed) := by
+        rw [← ih]
+        exact Nat.add_le_add_left hle c
+      rw [Nat.min_eq_left hle, Nat.min_eq_left h2]
+    · have h2 : tl.foldr (fun i acc => min (c + f i) acc) (c + seed) ≤ c + f hd := by
+        rw [← ih]
+        exact Nat.add_le_add_left hle c
+      rw [Nat.min_eq_right hle, Nat.min_eq_right h2]
+      exact ih
+
+/-- A constant on the right distributes into a `min`-fold. -/
+theorem add_foldr_min_right (c : ℕ) (l : List ℕ) (f : ℕ → ℕ) (seed : ℕ) :
+    l.foldr (fun i acc => min (f i) acc) seed + c
+      = l.foldr (fun i acc => min (f i + c) acc) (seed + c) := by
+  induction l with
+  | nil => rfl
+  | cons hd tl ih =>
+    rw [List.foldr_cons, List.foldr_cons]
+    rcases Nat.le_total (f hd) (tl.foldr (fun i acc => min (f i) acc) seed) with hle | hle
+    · have h2 : f hd + c ≤ tl.foldr (fun i acc => min (f i + c) acc) (seed + c) := by
+        rw [← ih]
+        exact Nat.add_le_add_right hle c
+      rw [Nat.min_eq_left hle, Nat.min_eq_left h2]
+    · have h2 : tl.foldr (fun i acc => min (f i + c) acc) (seed + c) ≤ f hd + c := by
+        rw [← ih]
+        exact Nat.add_le_add_right hle c
+      rw [Nat.min_eq_right hle, Nat.min_eq_right h2]
+      exact ih
 
 /-! ### The convolution and its two characterizations -/
 
-/-- Discrete min-plus convolution: `(α ⊛ β) t = min_{s ≤ t} (α s + β (t - s))`. -/
+/-- Discrete min-plus convolution: the minimum of `α s + β (t - s)` over
+`s ≤ t` (the seed is the `s = t` term itself). -/
 def mpConv (α β : ℕ → ℕ) (t : ℕ) : ℕ :=
-  ((Finset.range (t + 1)).image fun s => α s + β (t - s)).min'
-    (range_nonempty' t).image
+  (List.range (t + 1)).foldr (fun s acc => min (α s + β (t - s)) acc) (α t + β (t - t))
 
 theorem mpConv_le (α β : ℕ → ℕ) {t s : ℕ} (h : s ≤ t) :
     mpConv α β t ≤ α s + β (t - s) := by
   unfold mpConv
-  exact Finset.min'_le _ (Finset.mem_image.mpr ⟨s, Finset.mem_range.mpr (Nat.succ_le_succ h), rfl⟩)
+  refine foldr_min_le ?_
+  rw [List.mem_range]
+  omega
 
 theorem le_mpConv (α β : ℕ → ℕ) {t x : ℕ} (h : ∀ s ≤ t, x ≤ α s + β (t - s)) :
     x ≤ mpConv α β t := by
   unfold mpConv
-  refine Finset.le_min' _ ?_
-  rintro y ⟨s, hs, rfl⟩
-  exact h s (Finset.mem_range.mp hs)
-
-/-- The `min'`-over-image shifts a constant across the addition. -/
-private theorem min'_image_add_const (S : Finset ℕ) (hS : S.Nonempty) (c : ℕ) (f : ℕ → ℕ) :
-    ((S.image fun i => c + f i)).min' hS.image = c + ((S.image f)).min' hS.image := by
-  refine le_antisymm (Finset.le_min' _ fun x hx => ?_) (Finset.le_min' _ fun x hx => ?_)
-  · obtain ⟨i, hi, rfl⟩ := Finset.mem_image.mp hx
-    exact Finset.min'_le _ (Finset.mem_image.mpr ⟨i, hi, rfl⟩)
-  · obtain ⟨i, hi, rfl⟩ := Finset.mem_image.mp hx
-    exact Finset.min'_le _ (Finset.mem_image.mpr ⟨i, hi, rfl⟩)
+  refine le_foldr_min ?_ ?_
+  · have hse : x ≤ α t + β (t - t) := h t (Nat.le_refl t)
+    simpa using hse
+  · intro s hs
+    rw [List.mem_range] at hs
+    exact h s (by omega)
 
 /-! ### The min-plus algebra -/
 
 theorem mpConv_comm (α β : ℕ → ℕ) (t : ℕ) : mpConv α β t = mpConv β α t := by
-  unfold mpConv
-  refine congrArg _ (le_antisymm ?_ ?_)
-  · rw [Finset.image_subset_iff]
+  refine Nat.le_antisymm ?_ ?_
+  · refine le_mpConv β α ?_
     intro s hs
-    have hst : s ≤ t := Nat.le_of_lt_succ (Finset.mem_range.mp hs)
-    refine Finset.mem_image.mpr ⟨t - s, Finset.mem_range.mpr (by omega), ?_⟩
-    rw [Nat.sub_sub_self hst, Nat.add_comm]
-  · rw [Finset.image_subset_iff]
+    have h := mpConv_le α β (t := t) (s := t - s) (by omega)
+    rw [show t - (t - s) = s from Nat.sub_sub_self hs] at h
+    omega
+  · refine le_mpConv α β ?_
     intro s hs
-    have hst : s ≤ t := Nat.le_of_lt_succ (Finset.mem_range.mp hs)
-    refine Finset.mem_image.mpr ⟨t - s, Finset.mem_range.mpr (by omega), ?_⟩
-    rw [Nat.sub_sub_self hst, Nat.add_comm]
+    have h := mpConv_le β α (t := t) (s := t - s) (by omega)
+    rw [show t - (t - s) = s from Nat.sub_sub_self hs] at h
+    omega
 
 theorem mpConv_assoc (α β γ : ℕ → ℕ) (t : ℕ) :
     mpConv (mpConv α β) γ t = mpConv α (mpConv β γ) t := by
-  refine le_antisymm ?_ ?_
+  refine Nat.le_antisymm ?_ ?_
   · -- LHS ≤ RHS: at every outer index s ≤ t, through the witness window s + w
-    refine Finset.le_min' _ fun s hs => ?_
-    have hst : s ≤ t := Nat.le_of_lt_succ (Finset.mem_range.mp hs)
-    calc mpConv (mpConv α β) γ t
-        ≤ ((Finset.range (t - s + 1)).image fun w => α s + (β w + γ (t - s - w))).min'
-            (range_nonempty' _).image := by
-        refine Finset.le_min' _ fun w hw => ?_
-        have hws : w ≤ t - s := Nat.le_of_lt_succ (Finset.mem_range.mp hw)
-        have h1 : mpConv (mpConv α β) γ t ≤ mpConv α β (s + w) + γ (t - (s + w)) :=
-          mpConv_le _ _ (by omega)
-        have h2 : mpConv α β (s + w) ≤ α s + β (s + w - s) :=
-          mpConv_le α β (Nat.le_add_right s w)
-        have h3 : t - (s + w) = t - s - w := by omega
-        have h4 : s + w - s = w := Nat.add_sub_cancel_left
-        calc mpConv (mpConv α β) γ t
-            ≤ mpConv α β (s + w) + γ (t - (s + w)) := h1
-          _ = mpConv α β (s + w) + γ (t - s - w) := by rw [h3]
-          _ ≤ (α s + β w) + γ (t - s - w) := by
-                rw [h4] at h2
-                exact add_le_add_right h2 _
-          _ = α s + (β w + γ (t - s - w)) := by ring
-      _ = α s + mpConv β γ (t - s) := by rw [min'_image_add_const]
+    refine le_mpConv α (mpConv β γ) ?_
+    intro s hs
+    -- rewrite α s + mpConv β γ (t - s) into a min-fold over w
+    have hfold : α s + mpConv β γ (t - s)
+        = (List.range (t - s + 1)).foldr
+            (fun w acc => min (α s + (β w + γ (t - s - w))) acc)
+            (α s + (β (t - s) + γ (t - s - (t - s)))) := by
+      unfold mpConv
+      rw [add_foldr_min_left]
+    rw [hfold]
+    refine le_foldr_min ?_ ?_
+    · -- seed: LHS ≤ α s + (β (t-s) + γ (t-s-(t-s)))
+      have h1 : mpConv (mpConv α β) γ t ≤ mpConv α β (s + (t - s)) + γ (t - (s + (t - s))) :=
+        mpConv_le _ _ (by omega)
+      have h2 : mpConv α β (s + (t - s)) ≤ α s + β (s + (t - s) - s) :=
+        mpConv_le α β (by omega)
+      rw [show s + (t - s) = t from by omega] at h1 h2
+      rw [show t - t = t - s - (t - s) from by omega] at h1
+      omega
+    · intro w hw
+      rw [List.mem_range] at hw
+      have h1 : mpConv (mpConv α β) γ t ≤ mpConv α β (s + w) + γ (t - (s + w)) :=
+        mpConv_le _ _ (by omega)
+      have h2 : mpConv α β (s + w) ≤ α s + β (s + w - s) :=
+        mpConv_le α β (by omega)
+      rw [show s + w - s = w from by omega] at h2
+      rw [show t - (s + w) = t - s - w from by omega] at h1
+      omega
   · -- RHS ≤ LHS: at every outer index s' ≤ t, through the inner witness s' - u
-    refine Finset.le_min' _ fun s' hs' => ?_
-    have hs't : s' ≤ t := Nat.le_of_lt_succ (Finset.mem_range.mp hs')
-    calc mpConv α (mpConv β γ) t
-        ≤ ((Finset.range (s' + 1)).image fun u => α u + β (s' - u) + γ (t - s')).min'
-            (range_nonempty' _).image := by
-        refine Finset.le_min' _ fun u hu => ?_
-        have hus' : u ≤ s' := Nat.le_of_lt_succ (Finset.mem_range.mp hu)
-        have h1 : mpConv α (mpConv β γ) t ≤ α u + mpConv β γ (t - u) :=
-          mpConv_le _ _ (by omega)
-        have h2 : mpConv β γ (t - u) ≤ β (s' - u) + γ (t - u - (s' - u)) :=
-          mpConv_le β γ (by omega)
-        have h3 : t - u - (s' - u) = t - s' := by omega
-        calc mpConv α (mpConv β γ) t
-            ≤ α u + mpConv β γ (t - u) := h1
-          _ ≤ α u + (β (s' - u) + γ (t - s')) := by
-                rw [h3] at h2
-                exact add_le_add_right h2 _
-          _ = α u + β (s' - u) + γ (t - s') := by ring
-      _ = mpConv α β s' + γ (t - s') := by rw [min'_image_add_const]
+    refine le_mpConv (mpConv α β) γ ?_
+    intro s' hs'
+    have hfold : mpConv α β s' + γ (t - s')
+        = (List.range (s' + 1)).foldr
+            (fun u acc => min ((α u + β (s' - u)) + γ (t - s')) acc)
+            ((α s' + β (s' - s')) + γ (t - s')) := by
+      unfold mpConv
+      rw [add_foldr_min_right]
+    rw [hfold]
+    refine le_foldr_min ?_ ?_
+    · have h1 : mpConv α (mpConv β γ) t ≤ α s' + mpConv β γ (t - s') :=
+        mpConv_le _ _ (by omega)
+      have h2 : mpConv β γ (t - s') ≤ β (s' - s') + γ (t - s' - (s' - s')) :=
+        mpConv_le β γ (by omega)
+      rw [show t - s' - (s' - s') = t - s' from by omega] at h2
+      omega
+    · intro u hu
+      rw [List.mem_range] at hu
+      have h1 : mpConv α (mpConv β γ) t ≤ α u + mpConv β γ (t - u) :=
+        mpConv_le _ _ (by omega)
+      have h2 : mpConv β γ (t - u) ≤ β (s' - u) + γ (t - u - (s' - u)) :=
+        mpConv_le β γ (by omega)
+      rw [show t - u - (s' - u) = t - s' from by omega] at h2
+      omega
 
 theorem mpConv_mono_right (α β β' : ℕ → ℕ) (h : ∀ s, β s ≤ β' s) (t : ℕ) :
     mpConv α β t ≤ mpConv α β' t := by
-  refine le_mpConv α β' fun s hs => ?_
-  exact le_trans (mpConv_le α β hs) (add_le_add_left (h (t - s)) _)
+  refine le_mpConv α β' ?_
+  intro s hs
+  exact Nat.le_trans (n := mpConv α β t) (m := α s + β (t - s))
+    (k := α s + β' (t - s)) (mpConv_le α β hs) (Nat.add_le_add_left (h (t - s)) (α s))
 
 theorem mpConv_mono_left (α α' β : ℕ → ℕ) (h : ∀ s, α s ≤ α' s) (t : ℕ) :
     mpConv α β t ≤ mpConv α' β t := by
@@ -135,8 +205,9 @@ theorem mpConv_mono_left (α α' β : ℕ → ℕ) (h : ∀ s, α s ≤ α' s) (
 /-- Subadditive curves (with `α 0 = 0`) are closed under self-convolution —
 the arrival-curve closure law of the min-plus calculus. -/
 theorem mpConv_self_le (α : ℕ → ℕ) (h0 : α 0 = 0) (t : ℕ) : mpConv α α t ≤ α t := by
-  refine (mpConv_le α α t (Nat.le_refl t)).trans ?_
-  rw [Nat.sub_self, h0, Nat.zero_add]
+  have h := mpConv_le α α (t := t) (s := t) (Nat.le_refl t)
+  rw [Nat.sub_self, h0, Nat.add_zero] at h
+  exact h
 
 /-- **Service curve ⇒ backlog bound.**  If the system's output dominates the
 min-plus convolution with the service curve `β` (`hsvc`), the input `f` is
@@ -149,15 +220,26 @@ continuous one.) -/
 theorem serviceCurve_backlog {f g α β : ℕ → ℕ} (N : ℕ)
     (hsvc : ∀ t, mpConv f β t ≤ g t)
     (hfA : ∀ u t, u ≤ t → f t ≤ f u + α (t - u))
-    (hf0 : f 0 = 0)
+    (_hf0 : f 0 = 0)
     (hN : ∀ v, α v ≤ β v + N)
     (t : ℕ) : f t ≤ g t + N := by
-  have h1 : mpConv f β t ≤ β t := by
-    refine (mpConv_le f β (Nat.zero_le t)).trans ?_
-    rw [hf0, Nat.sub_zero, Nat.zero_add]
-  calc f t ≤ f 0 + α (t - 0) := hfA 0 t (Nat.zero_le t)
-    _ = α t := by rw [hf0, Nat.sub_zero, Nat.zero_add]
-    _ ≤ β t + N := hN t
-    _ ≤ g t + N := by rw [add_le_add_iff_right]; exact le_trans h1 (hsvc t)
+  have hkey : f t ≤ mpConv f β t + N := by
+    unfold mpConv
+    rw [add_foldr_min_right]
+    refine le_foldr_min ?_ ?_
+    · omega
+    · intro s hs
+      rw [List.mem_range] at hs
+      have h1 := hfA s t (by omega)
+      have h2 := hN (t - s)
+      omega
+  exact Nat.le_trans (n := f t) (m := mpConv f β t + N) (k := g t + N) hkey
+    (Nat.add_le_add_right (hsvc t) N)
+
+#print axioms mpConv_comm
+#print axioms mpConv_assoc
+#print axioms mpConv_mono_right
+#print axioms mpConv_self_le
+#print axioms serviceCurve_backlog
 
 end Widgets.NetCalc

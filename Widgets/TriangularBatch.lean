@@ -40,92 +40,119 @@ theorem Triangular.noSelfLoop {E : List (V × V)} (htri : Triangular E) {a b : V
   exact absurd this (Nat.lt_irrefl _)
 
 /-- First-occurrence position: an edge of the left part sits before `|P|`. -/
-private theorem idxOf_mem_left_le {α : Type*} [BEq α] [EquivBEq α] {P E' : List α}
+private theorem idxOf_mem_left_le {α : Type*} [BEq α] [LawfulBEq α] {P E' : List α}
     {u : α} (hu : u ∈ P) : (P ++ E').idxOf u ≤ P.length := by
   rw [List.idxOf_append_of_mem hu]
   exact Nat.le_of_lt (List.idxOf_lt_length_of_mem hu)
 
 /-- First-occurrence position: an edge only of the right part sits at `≥ |P|`. -/
-private theorem length_le_idxOf_mem_right {α : Type*} [BEq α] [EquivBEq α]
+private theorem length_le_idxOf_mem_right {α : Type*} [BEq α] [LawfulBEq α]
     {P E' : List α} {u : α} (huP : u ∉ P) (huE : u ∈ E') :
     P.length ≤ (P ++ E').idxOf u := by
   rw [List.idxOf_append_of_notMem huP]
-  exact Nat.le_add_left _ _
+  exact Nat.le_add_right _ _
 
 /-- One pass settles the processed prefix tightly, by induction along the
-stored order.  (The carried invariant: heads of processed edges are never
-targeted by the unprocessed suffix — that is exactly what `Triangular`
-buys.) -/
+stored order.  The positioning invariant carried: the current edge's head is
+not the tail of any processed edge (so the head's value is final); the
+current edge's tail is never targeted by the unprocessed suffix (so the
+tail's value is final).  Both are exactly what `Triangular` buys. -/
 private theorem onePass_aux (w : V → V → ℕ) {F : List (V × V)} (htri : Triangular F) :
     ∀ (E' P : List (V × V)), P ++ E' = F → ∀ r : V → ℕ,
-    (∀ (a b : V), (a, b) ∈ P → ∀ z : V, (z, b) ∉ E') →
     (∀ (a b : V), (a, b) ∈ P → r b ≤ r a + w a b) →
     ∀ (a b : V), (a, b) ∈ P ++ E' →
       sweep w E' r b ≤ sweep w E' r a + w a b := by
   intro E'
   induction E' with
   | nil =>
-    intro P _ r _ htight a b hab
-    rw [List.append_nil] at hab ⊢
+    intro P _ r htight a b hab
+    rw [List.append_nil] at hab
     exact htight a b hab
   | cons e E' ih =>
-    intro P hsplit r hfrozen htight a b hab
+    intro P hsplit r htight a b hab
     obtain ⟨x, y⟩ := e
+    have hnd : (P ++ (x, y) :: E').Nodup := by
+      rw [hsplit]
+      exact htri.nodup
     have hmemXY : (x, y) ∈ F := by
       rw [← hsplit]
-      exact List.mem_append.mpr (Or.inr (List.mem_cons_self ..))
-    -- the head of the current edge is never targeted by the unprocessed tail
+      exact List.mem_append.mpr (Or.inr List.mem_cons_self)
+    have hxyP : (x, y) ∉ P := fun hp =>
+      (List.nodup_append.mp hnd).2.2 (x, y) hp (x, y) List.mem_cons_self rfl
+    -- (1) the current edge's tail is never targeted by the unprocessed tail
     have hnofreeze : ∀ z : V, (z, x) ∉ E' := by
       intro z hz
       have hzx : (z, x) ∈ F := by
         rw [← hsplit]
         exact List.mem_append.mpr (Or.inr (List.mem_cons_of_mem _ hz))
       have hzxP : (z, x) ∉ P := fun hp =>
-        (List.nodup_append.mp htri.nodup).2.2 (z, x) hp hz
+        (List.nodup_append.mp hnd).2.2 (z, x) hp (z, x) (List.mem_cons_of_mem _ hz) rfl
       have h1 := htri.inBeforeOut z x y hzx hmemXY
       have h3 : F.idxOf (x, y) ≤ P.length := by
         rw [← hsplit]
         by_cases hp : (x, y) ∈ P
         · exact idxOf_mem_left_le hp
-        · rw [List.idxOf_append, if_neg hp, List.idxOf_cons_self, Nat.zero_add]
+        · rw [List.idxOf_append_of_notMem hp, List.idxOf_cons_self, Nat.add_zero]
+          exact Nat.le_refl _
       have h4 : P.length ≤ F.idxOf (z, x) := by
         rw [← hsplit]
-        exact length_le_idxOf_mem_right hzxP hz
+        exact length_le_idxOf_mem_right hzxP (List.mem_cons_of_mem _ hz)
       omega
-    set r' : V → ℕ := step w r (x, y) with hr'
-    -- the new frozen condition for the grown prefix
-    have hfrozen' : ∀ (a b : V), (a, b) ∈ P ++ [(x, y)] → ∀ z : V, (z, b) ∉ E' := by
-      intro a b hab z hz
-      rcases List.mem_append.mp hab with hp | hp
-      · exact hfrozen a b hp z hz
-      · have heq : (a, b) = (x, y) := List.mem_singleton.mp hp
-        rw [heq] at hz ⊢
-        exact hnofreeze z hz
+    -- (2) the current edge's head is not the tail of any processed edge
+    have hnofreezeTail : ∀ z : V, (y, z) ∉ P := by
+      intro z hz
+      have hyz : (y, z) ∈ F := by
+        rw [← hsplit]
+        exact List.mem_append.mpr (Or.inl hz)
+      have h1 := htri.inBeforeOut x y z hmemXY hyz
+      have h3 : F.idxOf (x, y) = P.length := by
+        rw [← hsplit, List.idxOf_append_of_notMem hxyP, List.idxOf_cons_self,
+          Nat.add_zero]
+      have h4 : F.idxOf (y, z) < P.length := by
+        rw [← hsplit, List.idxOf_append_of_mem hz]
+        exact List.idxOf_lt_length_of_mem hz
+      omega
     -- the new tightness for the grown prefix, at the advanced state
     have hyx : y ≠ x := fun h => htri.noSelfLoop hmemXY h.symm
-    have htight' : ∀ (a b : V), (a, b) ∈ P ++ [(x, y)] → r' b ≤ r' a + w a b := by
+    have htight' : ∀ (a b : V), (a, b) ∈ P ++ [(x, y)] →
+        step w r (x, y) b ≤ step w r (x, y) a + w a b := by
       intro a b hab
       rcases List.mem_append.mp hab with hp | hp
-      · have hay : y ≠ a := fun h => hfrozen a b hp x (by rw [← h]; exact List.mem_cons_self ..)
-        have hby : y ≠ b := fun h => hfrozen a b hp x (by rw [← h]; exact List.mem_cons_self ..)
-        show step w r (x, y) b ≤ step w r (x, y) a + w a b
-        unfold step
-        rw [Function.update_apply, if_neg hby, Function.update_apply, if_neg hay]
-        exact htight a b hp
+      · have hay : y ≠ a := fun h => hnofreezeTail b (h.symm ▸ hp)
+        by_cases hby : b = y
+        · -- the processed edge (a, y) has its head lowered by this step
+          have hle := htight a b hp
+          rw [hby] at hle
+          rw [hby]
+          show (Function.update r y (min (r y) (r x + w x y))) y
+              ≤ (Function.update r y (min (r y) (r x + w x y))) a + w a y
+          rw [Function.update_apply, if_pos rfl, Function.update_apply,
+            if_neg (fun h : a = y => hay h.symm)]
+          omega
+        · -- neither endpoint is the current head: unchanged
+          have hle := htight a b hp
+          show step w r (x, y) b ≤ step w r (x, y) a + w a b
+          unfold step
+          rw [Function.update_apply, if_neg hby,
+            Function.update_apply, if_neg (fun h : a = y => hay h.symm)]
+          exact hle
       · have heq : (a, b) = (x, y) := List.mem_singleton.mp hp
-        subst heq
-        show step w r (x, y) y ≤ step w r (x, y) x + w x y
-        unfold step
+        have h'2 : a = x ∧ b = y := by rw [Prod.mk.injEq] at heq; exact heq
+        obtain ⟨hax, hby2⟩ := h'2
+        rw [hax, hby2]
+        show (Function.update r y (min (r y) (r x + w x y))) y
+            ≤ (Function.update r y (min (r y) (r x + w x y))) x + w x y
         rw [Function.update_apply, if_pos rfl, Function.update_apply,
           if_neg (fun h : x = y => hyx h.symm)]
-        exact min_le_right _ _
+        omega
     -- membership transport and the induction hypothesis
     have hsplit' : P ++ [(x, y)] ++ E' = F := by
       rw [List.append_assoc, List.singleton_append, hsplit]
-    have := ih (P ++ [(x, y)]) hsplit' r' hfrozen' htight'
-    intro a' b' hab'
-    rw [List.append_assoc, List.singleton_append] at hab'
-    exact this a' b' hab'
+    have hih := ih (P ++ [(x, y)]) hsplit' (step w r (x, y)) htight'
+    have hab' : (a, b) ∈ (P ++ [(x, y)]) ++ E' := by
+      rw [List.append_assoc, List.singleton_append]
+      exact hab
+    exact hih a b hab'
 
 /-- **One-batch-pass settle license** (Luo–Zhao 2016, min-plus form): a single
 sweep along a triangular edge list leaves the state satisfying every Bellman
@@ -133,9 +160,12 @@ inequality on the list — no iteration, no second pass. -/
 theorem onePass_tight (w : V → V → ℕ) {E : List (V × V)} (htri : Triangular E)
     (d₀ : V → ℕ) (a b : V) (hab : (a, b) ∈ E) :
     sweep w E d₀ b ≤ sweep w E d₀ a + w a b := by
-  refine onePass_aux w htri E [] (by rw [List.append_nil]) d₀ ?_ ?_ a b ?_
-  · intro a b hab; exact absurd hab (by simp)
-  · intro a b hab; exact absurd hab (by simp)
+  refine onePass_aux w htri E [] (by simp) d₀ ?_ a b ?_
+  · intro a b hab
+    exact absurd hab (by simp)
   · simpa using hab
+
+#print axioms Triangular.noSelfLoop
+#print axioms onePass_tight
 
 end Widgets

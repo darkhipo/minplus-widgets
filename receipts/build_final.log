@@ -1,0 +1,74 @@
+== build rerun receipt 2026-11-10T07:03:02Z
+⚠ [485/702] Replayed Widgets.Sweep
+warning: Widgets/Sweep.lean:45:8: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/Sweep.lean:47:8: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Widgets/Sweep.lean:74:33: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Widgets/Sweep.lean:93:35: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/Sweep.lean:132:35: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/Sweep.lean:151:12: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/Sweep.lean:154:12: `if_neg` has been deprecated: Use `ite_eq_right` instead
+info: Widgets/Sweep.lean:181:0: 'Widgets.step_le' depends on axioms: [propext, Quot.sound]
+info: Widgets/Sweep.lean:182:0: 'Widgets.sweep_le' depends on axioms: [propext, Quot.sound]
+info: Widgets/Sweep.lean:183:0: 'Widgets.sweep_hit' depends on axioms: [propext, Quot.sound]
+info: Widgets/Sweep.lean:184:0: 'Widgets.sweepFix_iff' depends on axioms: [propext, Quot.sound]
+info: Widgets/Sweep.lean:185:0: 'Widgets.sweepRun_sweep' does not depend on any axioms
+⚠ [486/702] Replayed Widgets.TriangularBatch
+warning: Widgets/TriangularBatch.lean:50:43: Variable name `huE` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _huE
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Widgets/TriangularBatch.lean:129:37: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/TriangularBatch.lean:130:12: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Widgets/TriangularBatch.lean:136:37: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Widgets/TriangularBatch.lean:137:35: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Widgets/TriangularBatch.lean:145:35: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Widgets/TriangularBatch.lean:146:10: `if_neg` has been deprecated: Use `ite_eq_right` instead
+info: Widgets/TriangularBatch.lean:168:0: 'Widgets.Triangular.noSelfLoop' does not depend on any axioms
+info: Widgets/TriangularBatch.lean:169:0: 'Widgets.onePass_tight' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [766/769] Replayed Widgets.FrozenLock
+info: Widgets/FrozenLock.lean:144:0: 'Widgets.sweep_unlocks' depends on axioms: [propext, Quot.sound]
+info: Widgets/FrozenLock.lean:145:0: 'Widgets.Φ_sweep_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: Widgets/FrozenLock.lean:146:0: 'Widgets.Φ_sweep_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: Widgets/FrozenLock.lean:147:0: 'Widgets.frozenLock_settles' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: Widgets/FrozenLock.lean:148:0: 'Widgets.settled_by' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: Widgets/FrozenLock.lean:149:0: 'Widgets.tight_of_stable' depends on axioms: [propext, Quot.sound]
+info: Widgets/FrozenLock.lean:150:0: 'Widgets.Φ_run_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: Widgets/FrozenLock.lean:151:0: 'Widgets.Φ_run_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [767/769] Replayed Widgets.NetCalc
+info: Widgets/NetCalc.lean:239:0: 'Widgets.NetCalc.mpConv_comm' depends on axioms: [propext, Quot.sound]
+info: Widgets/NetCalc.lean:240:0: 'Widgets.NetCalc.mpConv_assoc' depends on axioms: [propext, Quot.sound]
+info: Widgets/NetCalc.lean:241:0: 'Widgets.NetCalc.mpConv_mono_right' depends on axioms: [propext, Quot.sound]
+info: Widgets/NetCalc.lean:242:0: 'Widgets.NetCalc.mpConv_self_le' depends on axioms: [propext, Quot.sound]
+info: Widgets/NetCalc.lean:243:0: 'Widgets.NetCalc.serviceCurve_backlog' depends on axioms: [propext, Quot.sound]
+Build completed successfully (769 jobs).
+LAKE-EXIT:0
+
+== named oleans ==
+-rw-r--r--  1 dmitri.arkhipov  staff  3168 Nov  9 23:02 .lake/build/lib/lean/Widgets.olean
+
+.lake/build/lib/lean/Widgets/:
+total 2712
+drwxr-xr-x  22 dmitri.arkhipov  staff     704 Nov  9 23:02 .
+drwxr-xr-x   8 dmitri.arkhipov  staff     256 Nov  9 23:02 ..
+-rw-r--r--   1 dmitri.arkhipov  staff   11185 Nov  9 23:02 FrozenLock.ilean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 FrozenLock.ilean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff  164984 Nov  9 23:02 FrozenLock.olean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 FrozenLock.olean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff    4185 Nov  9 23:02 FrozenLock.trace
+-rw-r--r--   1 dmitri.arkhipov  staff   15322 Nov  9 23:02 NetCalc.ilean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 NetCalc.ilean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff  610904 Nov  9 23:02 NetCalc.olean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 NetCalc.olean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff    3638 Nov  9 23:02 NetCalc.trace
+-rw-r--r--   1 dmitri.arkhipov  staff   11878 Nov  9 23:02 Sweep.ilean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 Sweep.ilean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff  280184 Nov  9 23:02 Sweep.olean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 Sweep.olean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff    4435 Nov  9 23:02 Sweep.trace
+-rw-r--r--   1 dmitri.arkhipov  staff   14773 Nov  9 23:02 TriangularBatch.ilean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 TriangularBatch.ilean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff  204400 Nov  9 23:02 TriangularBatch.olean
+-rw-r--r--   1 dmitri.arkhipov  staff      16 Nov  9 23:02 TriangularBatch.olean.hash
+-rw-r--r--   1 dmitri.arkhipov  staff    4148 Nov  9 23:02 TriangularBatch.trace

@@ -1,4 +1,6 @@
-import Mathlib.Tactic
+import Mathlib.Logic.Function.Basic
+import Mathlib.Data.List.Basic
+import Mathlib.Order.Basic
 
 /-!
 # Widgets.Sweep — the discrete min-plus relaxation engine
@@ -37,18 +39,23 @@ def sweep (w : V → V → ℕ) : List (V × V) → (V → ℕ) → (V → ℕ)
 
 theorem step_le (w : V → V → ℕ) (d : V → ℕ) (e : V × V) (v : V) :
     step w d e v ≤ d v := by
-  unfold step
+  show (Function.update d e.2 (min (d e.2) (d e.1 + w e.1 e.2))) v ≤ d v
   rw [Function.update_apply]
   by_cases h : v = e.2
   · rw [if_pos h, h]
-    exact min_le_left _ _
+    omega
   · rw [if_neg h]
+    exact Nat.le_refl _
 
 theorem sweep_le (w : V → V → ℕ) (E : List (V × V)) (d : V → ℕ) (v : V) :
     sweep w E d v ≤ d v := by
   induction E generalizing d with
-  | nil => rfl
-  | cons e E ih => exact (ih (step w d e) v).trans (step_le w d e v)
+  | nil => exact Nat.le_refl _
+  | cons e E ih =>
+    have h1 : sweep w E (step w d e) v ≤ step w d e v := ih (step w d e)
+    have h2 : step w d e v ≤ d v := step_le w d e v
+    show sweep w E (step w d e) v ≤ d v
+    omega
 
 /-- Every value at `v` survives a sweep that never relaxes an edge into `v`. -/
 theorem sweep_untouched (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V → ℕ) (v : V),
@@ -60,10 +67,10 @@ theorem sweep_untouched (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V �
     intro d v hf
     obtain ⟨x, y⟩ := e
     by_cases hy : v = y
-    · exact hf x (by rw [hy]; exact List.mem_cons_self (x, y) E)
+    · exact (hf x (by rw [hy]; exact List.mem_cons_self)).elim
     · show sweep w E (step w d (x, y)) v = d v
       rw [ih (step w d (x, y)) v (fun z hz => hf z (List.mem_cons_of_mem _ hz))]
-      unfold step
+      show (Function.update d y (min (d y) (d x + w x y))) v = d v
       rw [Function.update_apply, if_neg hy]
 
 /-- An improving edge in the list forces the sweep to lower the head at least
@@ -77,14 +84,23 @@ theorem sweep_hit (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V → ℕ
     intro d a b h
     obtain ⟨x, y⟩ := e
     show sweep w E (step w d (x, y)) b ≤ d a + w a b
-    by_cases he : (x, y) = (a, b)
-    · subst he
-      refine (sweep_le w E (step w d (a, b)) b).trans ?_
-      unfold step
-      rw [Function.update_apply, if_pos rfl]
-      exact min_le_right _ _
-    · refine (ih (step w d (x, y)) a b h).trans ?_
-      exact step_le w d (x, y) a
+    rcases List.mem_cons.mp h with h'' | h'
+    · rw [Prod.mk.injEq] at h''
+      obtain ⟨hax, hby⟩ := h''
+      rw [hax, hby]
+      have h2 : step w d (x, y) y ≤ d x + w x y := by
+        show (Function.update d y (min (d y) (d x + w x y))) y ≤ d x + w x y
+        rw [Function.update_apply, if_pos rfl]
+        omega
+      have h1 : sweep w E (step w d (x, y)) y ≤ step w d (x, y) y :=
+        sweep_le w E (step w d (x, y)) y
+      omega
+    · have h1 : sweep w E (step w d (x, y)) b ≤ step w d (x, y) b :=
+        sweep_le w E (step w d (x, y)) b
+      have h2 := ih (step w d (x, y)) a b h'
+      have h3 : step w d (x, y) a + w a b ≤ d a + w a b :=
+        Nat.add_le_add_right (step_le w d (x, y) a) _
+      omega
 
 /-- A sweep fixes `d` iff `d` is tight (satisfies all Bellman inequalities on
 `E`).  Forward direction: Zhao 2005's fixpoint characterization. -/
@@ -97,16 +113,27 @@ theorem tight_of_fixpoint (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V
     intro d hfix a b hab
     obtain ⟨x, y⟩ := e
     have hE : sweep w E (step w d (x, y)) = d := hfix
+    have hr' : step w d (x, y) = d := by
+      funext v
+      have h1 : step w d (x, y) v ≤ d v := step_le w d (x, y) v
+      have h2 : d v ≤ step w d (x, y) v := by
+        have hle := sweep_le w E (step w d (x, y)) v
+        rwa [hE] at hle
+      exact Nat.le_antisymm h1 h2
     rcases List.mem_cons.mp hab with h' | h'
-    · rw [Prod.mk.injEq] at h'
-      obtain ⟨rfl, rfl⟩ := h'
-      calc d y = sweep w E (step w d (x, y)) y := (congrFun hE y).symm
-        _ ≤ step w d (x, y) y := sweep_le w E (step w d (x, y)) y
-        _ = min (d y) (d x + w x y) := by
-              unfold step
-              rw [Function.update_apply, if_pos rfl]
-        _ ≤ d x + w x y := min_le_right _ _
-    · exact ih d hfix a b h'
+    · have h'2 : a = x ∧ b = y := by rw [Prod.mk.injEq] at h'; exact h'
+      obtain ⟨hax, hby⟩ := h'2
+      rw [hax, hby]
+      have e1 : d y = sweep w E (step w d (x, y)) y := (congrFun hE y).symm
+      have e2 : sweep w E (step w d (x, y)) y ≤ step w d (x, y) y :=
+        sweep_le w E (step w d (x, y)) y
+      have e3 : step w d (x, y) y = min (d y) (d x + w x y) := by
+        show (Function.update d y (min (d y) (d x + w x y))) y = min (d y) (d x + w x y)
+        rw [Function.update_apply, if_pos rfl]
+      omega
+    · have hfix' : sweep w E (step w d (x, y)) = step w d (x, y) := hE.trans hr'.symm
+      have hres := ih (step w d (x, y)) hfix' a b h'
+      rwa [hr'] at hres
 
 theorem fixpoint_of_tight (w : V → V → ℕ) (E : List (V × V)) (d : V → ℕ)
     (htight : ∀ (a b : V), (a, b) ∈ E → d b ≤ d a + w a b) :
@@ -115,17 +142,20 @@ theorem fixpoint_of_tight (w : V → V → ℕ) (E : List (V × V)) (d : V → �
   | nil => rfl
   | cons e E ih =>
     obtain ⟨x, y⟩ := e
-    show sweep w E (step w d (x, y)) d = d
+    show sweep w E (step w d (x, y)) = d
     have hstep : step w d (x, y) = d := by
       funext v
-      unfold step
+      show (Function.update d y (min (d y) (d x + w x y))) v = d v
       rw [Function.update_apply]
       by_cases h : v = y
       · rw [if_pos h, h]
-        exact min_eq_left (htight x y (List.mem_cons.mpr (Or.inl rfl)))
+        have hle : d y ≤ d x + w x y := htight x y (List.mem_cons.mpr (Or.inl rfl))
+        omega
       · rw [if_neg h]
     rw [hstep]
-    exact ih
+    have htail : sweep w E d = d :=
+      ih (fun a b hab' => htight a b (List.mem_cons_of_mem _ hab'))
+    exact htail
 
 theorem sweepFix_iff (w : V → V → ℕ) (E : List (V × V)) (d : V → ℕ) :
     sweep w E d = d ↔ ∀ (a b : V), (a, b) ∈ E → d b ≤ d a + w a b :=
@@ -145,8 +175,13 @@ theorem sweepRun_sweep (w : V → V → ℕ) (E : List (V × V)) (k : ℕ) (d : 
   induction k generalizing d with
   | zero => rfl
   | succ k ih =>
-      show sweep w E (sweepRun w E k (sweep w E d)) = _
+      show sweep w E (sweepRun w E k (sweep w E d)) = sweep w E (sweepRun w E (k + 1) d)
       rw [ih]
-      rfl
+
+#print axioms step_le
+#print axioms sweep_le
+#print axioms sweep_hit
+#print axioms sweepFix_iff
+#print axioms sweepRun_sweep
 
 end Widgets

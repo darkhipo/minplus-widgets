@@ -42,8 +42,8 @@ Key names:
 - `Widgets.FrozenLock.tight_of_stable` — the stable state is the Bellman
   fixpoint: the no-carry consolidation seam.
 
-Status: **stated, proofs complete in source, build pending** (swap-gated;
-receipts to be minted on first green build).
+Status: **PROVED & BUILT** — `lake build Widgets` exit 0, olean minted,
+axioms `[propext, Classical.choice, Quot.sound]` (receipts/RECEIPTS.md).
 
 ## Widget 2 — TriangularBatch (`Widgets/TriangularBatch.lean`)
 
@@ -69,7 +69,8 @@ Key names:
   Bellman inequality on the list:
   `(htri : Triangular E) → (a,b) ∈ E → sweep w E d₀ b ≤ sweep w E d₀ a + w a b`.
 
-Status: **stated, proofs complete in source, build pending** (same gate).
+Status: **PROVED & BUILT** — exit 0, olean minted, axioms
+`[propext, Quot.sound]` (receipts/RECEIPTS.md).
 
 ## Widget 3 — NetCalc (`Widgets/NetCalc.lean`)
 
@@ -95,7 +96,8 @@ Key names:
   `β t`, so no subadditivity premise is needed — noted honestly in the
   docstring.)
 
-Status: **stated, proofs complete in source, build pending** (same gate).
+Status: **PROVED & BUILT** — exit 0, olean minted, axioms
+`[propext, Quot.sound]` (receipts/RECEIPTS.md).
 
 ## Named-premise seams (D7 boundary)
 
