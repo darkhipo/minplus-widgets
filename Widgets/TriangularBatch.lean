@@ -40,16 +40,16 @@ theorem Triangular.noSelfLoop {E : List (V × V)} (htri : Triangular E) {a b : V
   exact absurd this (Nat.lt_irrefl _)
 
 /-- First-occurrence position: an edge of the left part sits before `|P|`. -/
-private theorem idxOf_mem_left_le {α : Type*} [BEq α] [LawfulBEq α] {P E' : List α}
+private theorem idxOf_mem_left_le {α : Type*} [BEq α] [EquivBEq α] {P E' : List α}
     {u : α} (hu : u ∈ P) : (P ++ E').idxOf u ≤ P.length := by
-  rw [List.idxOf_append, if_pos hu]
-  exact Nat.le_of_lt (List.idxOf_lt_length hu)
+  rw [List.idxOf_append_of_mem hu]
+  exact Nat.le_of_lt (List.idxOf_lt_length_of_mem hu)
 
 /-- First-occurrence position: an edge only of the right part sits at `≥ |P|`. -/
-private theorem length_le_idxOf_mem_right {α : Type*} [BEq α] [LawfulBEq α]
+private theorem length_le_idxOf_mem_right {α : Type*} [BEq α] [EquivBEq α]
     {P E' : List α} {u : α} (huP : u ∉ P) (huE : u ∈ E') :
     P.length ≤ (P ++ E').idxOf u := by
-  rw [List.idxOf_append, if_neg huP]
+  rw [List.idxOf_append_of_notMem huP]
   exact Nat.le_add_left _ _
 
 /-- One pass settles the processed prefix tightly, by induction along the
@@ -117,7 +117,7 @@ private theorem onePass_aux (w : V → V → ℕ) {F : List (V × V)} (htri : Tr
         show step w r (x, y) y ≤ step w r (x, y) x + w x y
         unfold step
         rw [Function.update_apply, if_pos rfl, Function.update_apply,
-          if_neg (fun h : x = x => hyx h.symm)]
+          if_neg (fun h : x = y => hyx h.symm)]
         exact min_le_right _ _
     -- membership transport and the induction hypothesis
     have hsplit' : P ++ [(x, y)] ++ E' = F := by

@@ -48,11 +48,12 @@ theorem sweep_unlocks (d : V → ℕ) (a b : V) (hab : (a, b) ∈ E)
 theorem Φ_sweep_le [Fintype V] (d : V → ℕ) : Φ w E (sweep w E d) ≤ Φ w E d :=
   Finset.sum_le_sum fun v _ => sweep_le w E d v
 
+/-- Machine potential: the total distance mass (defined here so the section
+variables apply cleanly). -/
+
 theorem Φ_sweep_lt [Fintype V] (d : V → ℕ) (h : ∃ v, sweep w E d v < d v) :
-    Φ w E (sweep w E d) < Φ w E d := by
-  obtain ⟨v, hv⟩ := h
-  exact Finset.sum_lt_sum_of_nonempty (fun u _ => sweep_le w E d u)
-    ⟨v, hv⟩
+    Φ w E (sweep w E d) < Φ w E d :=
+  Finset.sum_lt_sum (fun u _ => sweep_le w E d u) h
 
 /-- Every no-change sweep is a fixpoint sweep. -/
 theorem exists_lt_of_ne_fix (d : V → ℕ) (hne : sweep w E d ≠ d) :
@@ -76,8 +77,8 @@ theorem frozenLock_terminates [Fintype V] :
     have hs : sweep w E d = d := by
       funext v
       have h1 : sweep w E d v ≤ d v := sweep_le w E d v
-      rw [h0 v] at h1
-      exact (Nat.le_zero.mp h1).symm
+      rw [h0 v] at h1 ⊢
+      exact Nat.le_zero.mp h1
     exact ⟨0, Nat.zero_le _, by rw [sweepRun_succ]; exact hs⟩
   | succ N ih =>
     intro d hd
@@ -104,21 +105,18 @@ theorem stable_suffix {d : V → ℕ} {k : ℕ}
   induction j with
   | zero => exact h
   | succ j ih =>
-    calc sweepRun w E (k + 1 + (j + 1)) d
-        = sweep w E (sweepRun w E (k + 1 + j) d) := by
-          rw [Nat.add_right_comm]
-          rfl
-      _ = sweep w E (sweepRun w E (k + j) d) := by rw [ih]
-      _ = sweepRun w E (k + (j + 1)) d := rfl
+      have hidx : k + 1 + (j + 1) = (k + 1 + j) + 1 := by omega
+      rw [hidx]
+      exact congrArg (sweep w E) ih
 
 /-- The run is stationary by potential + 1 sweeps. -/
 theorem settled_by [Fintype V] (d : V → ℕ) :
     sweepRun w E (Φ w E d + 1) d = sweepRun w E (Φ w E d) d := by
   obtain ⟨k, hk, hstab⟩ := frozenLock_settles w E d
-  have := stable_suffix (E := E) (w := w) hstab (Φ w E d - k)
-  rw [Nat.add_sub_cancel' hk] at this
-  rw [Nat.add_sub_cancel' (by omega)]
-  exact this
+  have hsuf := stable_suffix (E := E) (w := w) hstab (Φ w E d - k)
+  have h1 : k + 1 + (Φ w E d - k) = Φ w E d + 1 := by omega
+  have h2 : k + (Φ w E d - k) = Φ w E d := by omega
+  rwa [h1, h2] at hsuf
 
 /-- The stable state satisfies every Bellman inequality on `E`. -/
 theorem tight_of_stable (d : V → ℕ) (k : ℕ)

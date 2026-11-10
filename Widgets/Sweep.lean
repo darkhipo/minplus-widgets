@@ -39,11 +39,10 @@ theorem step_le (w : V → V → ℕ) (d : V → ℕ) (e : V × V) (v : V) :
     step w d e v ≤ d v := by
   unfold step
   rw [Function.update_apply]
-  by_cases h : e.2 = v
+  by_cases h : v = e.2
   · rw [if_pos h, h]
     exact min_le_left _ _
   · rw [if_neg h]
-    exact le_rfl
 
 theorem sweep_le (w : V → V → ℕ) (E : List (V × V)) (d : V → ℕ) (v : V) :
     sweep w E d v ≤ d v := by
@@ -60,12 +59,10 @@ theorem sweep_untouched (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V �
   | cons e E ih =>
     intro d v hf
     obtain ⟨x, y⟩ := e
-    by_cases hy : y = v
-    · exact absurd (List.mem_cons.mpr (Or.inl (by rw [Prod.mk.injEq]; exact ⟨rfl, hy⟩)))
-        (hf x)
+    by_cases hy : v = y
+    · exact hf x (by rw [hy]; exact List.mem_cons_self (x, y) E)
     · show sweep w E (step w d (x, y)) v = d v
-      rw [ih (step w d (x, y)) v (fun z hz =>
-        hf z (List.mem_cons_of_mem _ hz))]
+      rw [ih (step w d (x, y)) v (fun z hz => hf z (List.mem_cons_of_mem _ hz))]
       unfold step
       rw [Function.update_apply, if_neg hy]
 
@@ -99,26 +96,17 @@ theorem tight_of_fixpoint (w : V → V → ℕ) : ∀ (E : List (V × V)) (d : V
   | cons e E ih =>
     intro d hfix a b hab
     obtain ⟨x, y⟩ := e
-    -- the running state after the first step satisfies its own fixpoint equation,
-    -- hence equals d pointwise (it is trapped between d and itself)
-    have h1 : sweep w E (step w d (x, y)) = step w d (x, y) := by
-      apply le_antisymm (sweep_le w E _)
-      intro v
-      rw [← hfix]
-      exact sweep_le w E (step w d (x, y)) v
-    have hmem : (a, b) ∈ E := by
-      rcases List.mem_cons.mp hab with h' | h'
-      · exact absurd h' he
-      · exact h'
-    have := ih (step w d (x, y)) h1 a b hmem
-    have ha : step w d (x, y) a = d a := by
-      unfold step
-      rw [Function.update_apply, if_neg (fun h' => he (by rw [Prod.mk.injEq]; exact ⟨h', rfl⟩))]
-    have hb : step w d (x, y) b = d b := by
-      unfold step
-      rw [Function.update_apply, if_neg (fun h' => he (by rw [Prod.mk.injEq]; exact ⟨h', rfl⟩))]
-    rw [ha, hb] at this
-    exact this
+    have hE : sweep w E (step w d (x, y)) = d := hfix
+    rcases List.mem_cons.mp hab with h' | h'
+    · rw [Prod.mk.injEq] at h'
+      obtain ⟨rfl, rfl⟩ := h'
+      calc d y = sweep w E (step w d (x, y)) y := (congrFun hE y).symm
+        _ ≤ step w d (x, y) y := sweep_le w E (step w d (x, y)) y
+        _ = min (d y) (d x + w x y) := by
+              unfold step
+              rw [Function.update_apply, if_pos rfl]
+        _ ≤ d x + w x y := min_le_right _ _
+    · exact ih d hfix a b h'
 
 theorem fixpoint_of_tight (w : V → V → ℕ) (E : List (V × V)) (d : V → ℕ)
     (htight : ∀ (a b : V), (a, b) ∈ E → d b ≤ d a + w a b) :
@@ -132,9 +120,9 @@ theorem fixpoint_of_tight (w : V → V → ℕ) (E : List (V × V)) (d : V → �
       funext v
       unfold step
       rw [Function.update_apply]
-      by_cases h : y = v
+      by_cases h : v = y
       · rw [if_pos h, h]
-        exact congrArg _ (min_eq_left (htight x y (List.mem_cons.mpr (Or.inl rfl))))
+        exact min_eq_left (htight x y (List.mem_cons.mpr (Or.inl rfl)))
       · rw [if_neg h]
     rw [hstep]
     exact ih
@@ -156,6 +144,9 @@ theorem sweepRun_sweep (w : V → V → ℕ) (E : List (V × V)) (k : ℕ) (d : 
     sweepRun w E k (sweep w E d) = sweepRun w E (k + 1) d := by
   induction k generalizing d with
   | zero => rfl
-  | succ k ih => show sweep w E (sweepRun w E k (sweep w E d)) = _; rw [ih]; rfl
+  | succ k ih =>
+      show sweep w E (sweepRun w E k (sweep w E d)) = _
+      rw [ih]
+      rfl
 
 end Widgets
